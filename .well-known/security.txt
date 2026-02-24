@@ -1,0 +1,4 @@
+Contact: mailto:inquiries@ranzotech.com
+Preferred-Languages: en
+Expires: 2027-02-23
+Policy: https://w3.vin/
