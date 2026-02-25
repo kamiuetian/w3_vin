@@ -1,0 +1,33 @@
+name: Deploy to Plesk
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Trigger Plesk Git Pull via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          # 1. Get the repository name from GitHub (e.g., w3_something)
+          REPO_NAME="${{ github.event.repository.name }}"
+          
+          # 2. Convert the underscore back to a dot to get the domain (e.g., w3.something)
+          DOMAIN=$(echo "$REPO_NAME" | tr '_' '.')
+          
+          echo "Deploying update to $DOMAIN..."
+          
+          # 3. Tell Plesk to fetch and deploy
+          plesk ext git --fetch -domain "$DOMAIN" -name "github-main"
+          plesk ext git --deploy -domain "$DOMAIN" -name "github-main"
+          
+          echo "Deployment successful!"

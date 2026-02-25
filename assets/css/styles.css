@@ -332,16 +332,19 @@ h1{
   background: rgba(255,255,255,.03);
 }
 .market-strip .track{
-  display:flex; gap:22px; padding:14px 18px;
+  display:flex; align-items:center; gap:22px; padding:14px 18px;
   width:max-content;
-  animation: marquee 22s linear infinite;
+  animation: marquee var(--ticker-speed, 36s) linear infinite;
+  will-change: transform;
 }
-.market-strip:hover .track{animation-play-state: paused}
+.market-strip:hover .track{animation-play-state: running}
+.market-strip.market-strip--empty .track{padding:14px 18px}
 .ticker{
   display:flex; align-items:center; gap:10px;
   color: var(--muted);
   font-size:13px;
   white-space:nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .ticker b{color: var(--text)}
 .ticker .pill{
@@ -350,6 +353,12 @@ h1{
   border:1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.05);
 }
+.ticker .change{
+  font-weight:700;
+}
+.ticker .change.up{color:#7be7a8}
+.ticker .change.down{color:#ff9c9c}
+.ticker .change.flat{color:var(--muted)}
 @keyframes marquee{
   from{transform: translateX(0)}
   to{transform: translateX(-50%)}
@@ -456,7 +465,7 @@ html[data-lang="de"] [data-lang="de"]{display:initial}
   .hero{padding-top:36px}
 }
 @media (prefers-reduced-motion: reduce){
-  .market-strip .track{animation:none}
+  .market-strip .track{animation-duration:60s}
   .btn, .icon-btn{transition:none}
   html{scroll-behavior:auto}
 }

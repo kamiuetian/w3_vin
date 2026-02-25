@@ -178,22 +178,104 @@
     }, {passive:true});
   }
 
-  // Market strip: placeholder values; API-ready hook
-  function setTicker(sym, price){
-    document.querySelectorAll(`[data-ticker="${sym}"]`).forEach(el=>{ el.textContent = price; });
+  // Market strip: live top-10 crypto marquee
+  const marketStrip = $(".market-strip");
+  const marketTrack = $(".market-strip .track");
+  const MARKET_API = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=24h";
+
+  function escapeHtml(value){
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
-  // Default placeholders (no external calls by design)
-  setTicker("BTC","-");
-  setTicker("ETH","-");
-  setTicker("AUX","-");
+  function formatUsd(value){
+    if(typeof value !== "number" || !Number.isFinite(value)) return "-";
+    if(value >= 1000){
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0,
+      }).format(value);
+    }
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    }).format(value);
+  }
 
-  // If developer later injects window.W3_MARKET_DATA, we render it
-  if(window.W3_MARKET_DATA){
-    const md = window.W3_MARKET_DATA;
-    if(md.BTC) setTicker("BTC", md.BTC);
-    if(md.ETH) setTicker("ETH", md.ETH);
-    if(md.AUX) setTicker("AUX", md.AUX);
+  function formatPct(value){
+    if(typeof value !== "number" || !Number.isFinite(value)) return "0.00%";
+    const sign = value >= 0 ? "+" : "";
+    return `${sign}${value.toFixed(2)}%`;
+  }
+
+  function setTickerSpeed(){
+    if(!marketTrack) return;
+    const halfWidth = marketTrack.scrollWidth / 2;
+    const pxPerSecond = 95;
+    const seconds = Math.max(22, Math.min(90, halfWidth / pxPerSecond));
+    marketTrack.style.setProperty("--ticker-speed", `${seconds}s`);
+    // Force runtime animation so OS/browser motion prefs do not disable this banner.
+    marketTrack.style.animation = `marquee ${seconds}s linear infinite`;
+  }
+
+  function renderMarketStrip(items){
+    if(!marketTrack) return;
+    if(!Array.isArray(items) || items.length === 0){
+      marketTrack.innerHTML = "";
+      marketStrip?.classList.add("market-strip--empty");
+      return;
+    }
+
+    const row = items.map((coin)=>{
+      const symbol = escapeHtml((coin.symbol || "").toUpperCase());
+      const price = escapeHtml(formatUsd(coin.current_price));
+      const pctValue = coin.price_change_percentage_24h;
+      const pct = escapeHtml(formatPct(pctValue));
+      const trendClass = Number.isFinite(pctValue) ? (pctValue >= 0 ? "up" : "down") : "flat";
+      return `<div class="ticker"><span class="pill">${symbol}</span> <b>${price}</b> <span class="change ${trendClass}">${pct}</span></div>`;
+    }).join("");
+
+    // Duplicate once for seamless marquee.
+    marketTrack.innerHTML = row + row;
+    marketStrip?.classList.remove("market-strip--empty");
+    setTickerSpeed();
+  }
+
+  async function refreshMarketStrip(){
+    if(!marketTrack) return;
+    try{
+      const resp = await fetch(MARKET_API, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if(!resp.ok) throw new Error(`Market API error: ${resp.status}`);
+
+      const data = await resp.json();
+      if(!Array.isArray(data) || data.length === 0){
+        throw new Error("Market API returned no data.");
+      }
+
+      renderMarketStrip(data.slice(0, 10));
+    }catch(err){
+      renderMarketStrip([]);
+      if(window.console && console.warn){
+        console.warn("Unable to load market strip data.", err);
+      }
+    }
+  }
+
+  if(Array.isArray(window.W3_MARKET_DATA?.TOP10) && window.W3_MARKET_DATA.TOP10.length){
+    renderMarketStrip(window.W3_MARKET_DATA.TOP10.slice(0, 10));
+  } else {
+    refreshMarketStrip();
+    window.setInterval(refreshMarketStrip, 60000);
   }
 
 })();
